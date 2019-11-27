@@ -2,7 +2,6 @@ package com.company;
 
 // Java program to illustrate Client side
 // Implementation using DatagramSocket
-import javax.jws.soap.SOAPBinding;
 import java.io.*;
 import java.net.*;
 import java.util.LinkedList;
@@ -16,39 +15,36 @@ public class UDP_Client implements Serializable {
 
     private static final long serialVersionUID = 4088384793623750965L;
 
-
     static LinkedList<UserData> userList = new LinkedList<UserData>();
 
+    private static final String ip = "127.0.0.1";
+    private static final int portSend = 32000;
+    private static final int portReceive = 50000;
+    String header = "";
+
+
+
     public static void main(String[] args) throws IOException {
-        // write your code here
+
         System.out.println("Hello this is the UDP Client!");
-        load();
+        load(); // Load the stored list of Users
         Scanner sc = new Scanner(System.in);
 
-        // Step 1:Create the socket object for
+        // create the socket object for
         // carrying the data.
-        DatagramSocket ds = new DatagramSocket();
+        DatagramSocket dsSend = new DatagramSocket();
+        DatagramSocket dsRecieve = new DatagramSocket(portReceive);
 
-        InetAddress ip = InetAddress.getLocalHost();
-        byte buf[] = null;
 
-        // loop while user not enters "bye"
         while (true)
         {
+            // get input from the user
             String inp = sc.nextLine();
 
             // convert the String input into the byte array.
-            buf = inp.getBytes();
+            sendPacket(inp, dsSend);
 
-            // Step 2 : Create the datagramPacket for sending
-            // the data.
-            DatagramPacket DpSend = new DatagramPacket(buf, buf.length, ip, 32000);
-
-            // Step 3 : invoke the send call to actually send
-            // the data.
-            ds.send(DpSend);
-
-            // break the loop if user logs out
+            // if user logs out
             if (inp.contains("logout#")) {
                 String username = inp.substring(inp.indexOf("#") + 1, inp.indexOf("&"));
                 int rm = getUserIndex(username);
@@ -57,12 +53,16 @@ public class UDP_Client implements Serializable {
                 } else {
                     userList.remove(rm);
                     save();
-                    System.out.println(username + " has been successfully logged out");
+                    byte[] receive = new byte[65535];
+                    receivePacket(dsRecieve, receive);
+//                    System.out.println(username + " has been successfully logged out");
                     System.out.println();
                 }
-
             } else if(inp.contains("login#")) {
-                save();
+                // recieve buffer
+                byte[] receive = new byte[65535];
+                receivePacket(dsRecieve, receive);
+//                save();
             } else if (inp.contains("addusr#")) {
                 String username = inp.substring(inp.indexOf("#") + 1, inp.indexOf("&"));
                 String password = inp.substring(inp.indexOf("&") + 1);
@@ -71,10 +71,37 @@ public class UDP_Client implements Serializable {
                 save();
                 System.out.println(username + " has been added");
             }
-            dispUserList();
+//            dispUserList();
+
+
 
         }
 
+    }
+
+    public static void sendPacket(String msg, DatagramSocket ds) throws IOException {
+        byte buf[];
+        buf = msg.getBytes();
+        // create the datagramPacket for sending
+        // the data.
+        DatagramPacket DpSend = new DatagramPacket(buf, buf.length, InetAddress.getByName(ip), portSend);
+
+        // invoke the send call to actually send
+        // the data.
+        ds.send(DpSend);
+    }
+
+    public static void receivePacket(DatagramSocket ds, byte[] receive) throws IOException {
+
+        DatagramPacket DpReceive = null;
+        // create a DatgramPacket to receive the data.
+        DpReceive = new DatagramPacket(receive, receive.length);
+
+        // revieve the data in byte buffer.
+        ds.receive(DpReceive);
+        StringBuilder serverMsg = UDP_Server.data(receive);
+
+        System.out.println("Server msg: " + serverMsg);
     }
 
     public static void load() {
@@ -112,7 +139,7 @@ public class UDP_Client implements Serializable {
             listObjectOut.writeObject(userList);
             listObjectOut.close();
 
-            System.out.println("userList was written to savedUsers.txt");
+            System.out.println("\nuserList saved to savedUsers.txt");
 
         } catch (Exception ex) {
             ex.printStackTrace();
