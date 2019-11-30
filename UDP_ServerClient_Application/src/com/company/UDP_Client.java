@@ -54,6 +54,7 @@ public class UDP_Client implements Serializable {
     private static final int OPCODE_SUCCESSFUL_UNSUBSCRIBE_ACK = 0xA0;
     private static final int OPCODE_FAILED_UNSUBSCRIBE_ACK = 0xA1;
     private static final int OPCODE_POST_CLIENT = 0x30;
+    private static final int OPCODE_POST_FAILED = 0xB2;
     private static final int OPCODE_POST_ACK = 0xB0;
     private static final int OPCODE_FORWARD_SERVER = 0xB1;
     private static final int OPCODE_FORWARD_ACK = 0x31;
@@ -62,6 +63,9 @@ public class UDP_Client implements Serializable {
     private static final int OPCODE_END_OF_RETRIEVE_ACK = 0xC1;
     private static final int OPCODE_LOGOUT_CLIENT = 0x1F;
     private static final int OPCODE_LOGOUT_ACK = 0x8F;
+
+    private static int state = STATE_OFFLINE;
+    private static int userIndex = -1;
 
 
     public static void main(String[] args) throws IOException {
@@ -75,75 +79,90 @@ public class UDP_Client implements Serializable {
         DatagramSocket dsSend = new DatagramSocket();
         DatagramSocket dsRecieve = new DatagramSocket(portReceive);
 
-        UserData client = new UserData("init", "0");
+//        UserData client = new UserData("init", "0");
         int event = -1;
-        dispUserList();
+
+//        dispUserList();
 
         while (true)
         {
             // get input from the user
-            String inp = sc.nextLine();
+            String inp = "";
+
+            if (state == STATE_OFFLINE) {
+                System.out.print("\nPlease login: ");
+//                inp = sc.nextLine();
+            } else if (state == STATE_ONLINE) {
+                System.out.print(userList.get(userIndex).getUsername() + "~$ ");
+//                inp = sc.nextLine();
+            }
+
+            inp = sc.nextLine();
+//            else if (state == STATE_ONLINE) {
 
             // if user logs out
             if(inp.contains("login#")) {
                 event = EVENT_USER_LOGIN;
-
-                // receive buffer
-//                byte[] receive = new byte[65535];
-//                receivePacket(dsRecieve, receive);
-//                save();
-            } else if (inp.contains("logout#")) {
-                event = EVENT_USER_LOGOUT;
-
-//                String username = inp.substring(inp.indexOf("#") + 1, inp.indexOf("&"));
-//                int rm = getUserIndex(username);
-//                if (rm == -1) {
-//                    System.out.println(username + " was not found and was not logged out");
-//                } else {
-//                    userList.remove(rm);
-//                    saveClientList();
-//                    byte[] receive = new byte[65535];
-//                    receivePacket(dsRecieve, receive);
-////                    System.out.println(username + " has been successfully logged out");
-//                    System.out.println();
-//                }
-            }  else if (inp.contains("addusr#")) {
                 String username = inp.substring(inp.indexOf("#") + 1, inp.indexOf("&"));
-                String password = inp.substring(inp.indexOf("&") + 1);
-                UserData usr = new UserData(username, password);
-                userList.add(usr);
-                saveClientList();
-                System.out.println(username + " has been added");
-            } else {
-                sendPacket(inp, dsSend);
+                userIndex = getUserIndex(username);
+                } else if (inp.contains("logout#")) {
+                    event = EVENT_USER_LOGOUT;
+/*                    String username = inp.substring(inp.indexOf("#") + 1, inp.indexOf("&"));
+                    int rm = getUserIndex(username);
+                    if (rm == -1) {
+                        System.out.println(username + " was not found and was not logged out");
+                    } else {
+                        userList.remove(rm);
+                        saveClientList();
+                        byte[] receive = new byte[65535];
+                        receivePacket(dsRecieve, receive);
+    //                    System.out.println(username + " has been successfully logged out");
+                        System.out.println();
+                    }*/
+                }  else if (inp.contains("addusr#")) {
+                    String username = inp.substring(inp.indexOf("#") + 1, inp.indexOf("&"));
+                    String password = inp.substring(inp.indexOf("&") + 1);
+                    UserData usr = new UserData(username, password);
+                    userList.add(usr);
+                    saveClientList();
+                    System.out.println(username + " has been added");
+                } else if (inp.contains("post#")) {
+                    event = EVENT_USER_POST;
+                } else if (inp.equals("disp")) {
+                    dispUserList();
+                }  else {
+    //                sendPacket(inp, dsSend);
+                    System.out.println("Command invalid".toUpperCase());
+                }
+
+
+                if (event == EVENT_USER_LOGIN) { // SEND LOGIN MESSAGE TO SERVER
+                    header = OPCODE_LOGIN_CLIENT + "";
+                } else if (event == EVENT_USER_LOGOUT) { // SEND LOGOUT MESSAGE TO SERVER
+                    header = OPCODE_LOGOUT_CLIENT + "";
+                } else if (event == EVENT_USER_POST) {
+                    header = OPCODE_POST_CLIENT + "";
+                }
+
+            if (event != -1) {
+                payload = inp;
+                header = header + payload + "*" + userIndex;;
+                sendPacket(header, dsSend);
+                byte[] receive = new byte[65535];
+                receivePacket(dsRecieve,receive);
             }
 
 
-            if (event == EVENT_USER_LOGIN) { // SEND LOGIN MESSAGE TO SERVER
-                payload = inp;
-                header = MAGIC1 + MAGIC2 + OPCODE_LOGIN_CLIENT + payload.length() + client.getToken()
-                        + payload;
-                sendPacket(header, dsSend);
 
-                byte[] receive = new byte[65535];
-                receivePacket(dsRecieve,receive);
 
-            } else if (event == EVENT_USER_LOGOUT) { // SEND LOGOUT MESSAGE TO SERVER
-                payload = inp;
-                header = MAGIC1 + MAGIC2 + OPCODE_LOGOUT_CLIENT + payload.length() + client.getToken()
-                        + payload;
-                sendPacket(header, dsSend);
-                byte[] receive = new byte[65535];
-                receivePacket(dsRecieve,receive);
-            }
+//            } // END OF STATE CONDITIONAL
 
             event = -1; // RESET EVENT AFTER PROCESSING
+            header = "";
 
-//            dispUserList();
+        } // END OF WHILE
 
-        }
-
-    }
+    } // END OF MAIN
 
     public static void sendPacket(String msg, DatagramSocket ds) throws IOException {
         byte[] buf;
@@ -166,6 +185,15 @@ public class UDP_Client implements Serializable {
         // revieve the data in byte buffer.
         ds.receive(DpReceive);
         StringBuilder serverMsg = UDP_Server.data(receive);
+        String response = serverMsg.toString();
+        if (response.equals("login_ack#successful")) {
+            state = STATE_ONLINE;
+        } else if (response.equals("logout_ack#successful")) {
+            state = STATE_OFFLINE;
+            userIndex = -1;
+        }
+        else if (response.equals("post_ack#faled")) {
+        }
 
         System.out.println("Server msg: " + serverMsg);
     }
@@ -214,7 +242,7 @@ public class UDP_Client implements Serializable {
 
     public static void dispUserList() {
         loadClientList();
-        System.out.println("dispUserList!");
+        System.out.println("\n\ndispUserList!");
         for (UserData userData : userList) {
             System.out.println("-----------------");
             System.out.println("User: " + userData.getUsername());

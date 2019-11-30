@@ -1,8 +1,5 @@
 package com.company;
 
-import com.sun.deploy.security.SelectableSecurityManager;
-
-import javax.swing.plaf.synth.SynthOptionPaneUI;
 import java.io.*;
 import java.net.*;
 import java.util.LinkedList;
@@ -49,6 +46,7 @@ public class UDP_Server {
     private static final int OPCODE_FAILED_UNSUBSCRIBE_ACK = 0xA1;
     private static final int OPCODE_POST_CLIENT = 0x30;
     private static final int OPCODE_POST_ACK = 0xB0;
+    private static final int OPCODE_POST_FAILED = 0xB2;
     private static final int OPCODE_FORWARD_SERVER = 0xB1;
     private static final int OPCODE_FORWARD_ACK = 0x31;
     private static final int OPCODE_RETRIEVE_CLIENT = 0x40;
@@ -110,6 +108,10 @@ public class UDP_Server {
             msg = "logout_ack#successful";
         } else if (OPCODE == OPCODE_FAILED_LOGOUT_ACK) {
             msg = "logout_ack#failed";
+        } else if (OPCODE == OPCODE_POST_ACK) {
+            msg = "post_ack#successful";
+        } else if (OPCODE == OPCODE_POST_FAILED) {
+            msg = "post_ack#failed";
         }
 
         // create the socket object for
@@ -147,14 +149,14 @@ public class UDP_Server {
 
         if (clientMsg.toString().contains("#") && clientMsg.toString().contains("&")) {
             username = clientMsg.substring(clientMsg.indexOf("#") + 1, clientMsg.indexOf("&"));
-            pass = clientMsg.substring(clientMsg.indexOf("&") + 1);
+            pass = clientMsg.substring(clientMsg.indexOf("&") + 1, clientMsg.indexOf("*"));
         }
 
 
         int op = -1;
         try {
-            String opcode = clientMsg.substring(2, 4);
-            System.out.println("received opcode: " + opcode);
+            String opcode = clientMsg.substring(0, 2);
+//            System.out.println("received opcode: " + opcode);
             op = Integer.parseInt(opcode);
         } catch (NumberFormatException e) {
             System.out.println("\nNumberFormatException\n");
@@ -175,30 +177,34 @@ public class UDP_Server {
             } else {
                 sendPacket(OPCODE_FAILED_LOGOUT_ACK, dsSend);
             }
-        }
+        } else if (op == OPCODE_POST_CLIENT) {
+//            int token = clientMsg.substring(clientMsg.indexOf("#") + 1, clientMsg.indexOf("&"))
+//            getUserFromToken()
+//            sendPacket(OPCODE_POST_ACK, dsSend);
+            int userIndex = -1;
+            try {
+                userIndex = Integer.parseInt(clientMsg.substring(clientMsg.indexOf("*") + 1)); // get the user index
+            } catch (java.lang.NumberFormatException e) {
+                System.out.println("\njava.lang.NumberFormatException".toUpperCase());
+            } catch (StringIndexOutOfBoundsException ee) {
+                System.out.println("StringIndexOutOfBoundsException".toUpperCase());
+            }
 
-        if (clientMsg.toString().equals("clr")) {
-            System.out.println("Clearing userList...");
-            userList.clear();
-            saveClientList();
-        } else if (clientMsg.toString().equals("disp")) {
-            dispUserList();
-        } else if (clientMsg.toString().contains("logout#")) {
-//            sendPacket(OPCODE_LOGOUT_ACK, dsSend);
-//            System.out.println("logging out " + username);
-        } else if (clientMsg.toString().contains("login#")) {
-//            if (login(username, pass)) {
-//                sendPacket(OPCODE_SUCCESSFUL_LOGIN_ACK, dsSend);
-//            }
-        } else if (clientMsg.toString().contains("addusr#")) {
-//            String username = clientMsg.substring(clientMsg.indexOf("#") + 1, clientMsg.indexOf("&"));
-//            String pass = clientMsg.substring(clientMsg.indexOf("&") + 1);
-            UserData usr = new UserData(username, pass);
-            userList.add(usr);
-            saveClientList();
-            System.out.println("\n" + username + " has been added!\n");
-        } else {
-            System.out.println("Client msg: " + clientMsg);
+            if (userIndex == -1) {
+                System.out.println("Failed to locate user".toUpperCase());
+//                sendPacket(OPCODE_POST_FAILED, dsSend);
+                sendPacket(OPCODE_MUST_LOGIN_FIRST, dsSend);
+
+            } else {
+                if (userList.get(userIndex).isLoggedin()) {
+                    String msg = clientMsg.substring(clientMsg.indexOf("#") + 1, clientMsg.indexOf("*"));
+                    System.out.println(userList.get(userIndex).getUsername() + ": " + msg);
+                    sendPacket(OPCODE_POST_ACK, dsSend);
+                } else {
+                    sendPacket(OPCODE_POST_FAILED, dsSend);
+                }
+            }
+
         }
 
     }
@@ -210,7 +216,7 @@ public class UDP_Server {
             if (userList.get(i).getUsername().equals(user) && userList.get(i).getPassword().equals(pass)) {
                 logoutSuccessful = true;
                 userList.get(i).setLoggedin(false);
-                userList.get(i).setState(1);
+                userList.get(i).setState(0);
                 saveClientList();
                 break;
             }
@@ -229,7 +235,7 @@ public class UDP_Server {
 //                sendPacket(OPCODE_SUCCESSFUL_LOGIN_ACK, ds);
                 loginSuccesful = true;
                 userList.get(i).setLoggedin(true);
-                userList.get(i).setState(0);
+                userList.get(i).setState(1);
                 saveClientList();
                 break;
             }
@@ -272,7 +278,7 @@ public class UDP_Server {
             listObjectOut.writeObject(userList);
             listObjectOut.close();
 
-            System.out.println("\nuserList saved to savedUsers.txt");
+//            System.out.println("\nuserList saved to savedUsers.txt");
 
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -296,7 +302,7 @@ public class UDP_Server {
 
     }
 
-    public static int getUserFromToken(int token) {
+    public static int getUserIndexFromToken(int token) {
         int userIndex = -1;
 
         for (int i = 0; i < userList.size(); i++) {
