@@ -8,7 +8,7 @@ import java.util.LinkedList;
 import java.util.Scanner;
 
 /*
-    Each user needs a unique ID
+    UDP_Client
  */
 
 public class UDP_Client implements Serializable {
@@ -20,14 +20,54 @@ public class UDP_Client implements Serializable {
     private static final String ip = "127.0.0.1";
     private static final int portSend = 32000;
     private static final int portReceive = 50000;
-    String header = "";
 
+    // The header = "magic1 + magic2 + OPCODE + payloadlength +
+    //  + token + messageID + variable payload length
+    private static String header = "";
+    private static String payload = "";
+    private static final String MAGIC1 = "M";
+    private static final String MAGIC2 = "B";
+
+
+    private static final int STATE_OFFLINE = 0;
+    private static final int STATE_LOGIN_SENT = 1;
+    private static final int STATE_ONLINE = 2;
+
+    private static final int EVENT_USER_LOGIN = 0;// User types login. Client sends login message
+    private static final int EVENT_LOGIN_SUCCESSFUL = 1;
+    private static final int EVENT_LOGIN_FAILED = 2;
+    private static final int EVENT_USER_LOGOUT = 3; // User types logout. Client sends logoff message
+    private static final int EVENT_USER_POST = 4;
+    private static final int EVENT_USER_INVALID = 79;
+    private static final int EVENT_POST_ACK = 81;
+    private static final int EVENT_INVALID = 255;
+
+    private static final int OPCODE_SESSION_RESET = 0x00;
+    private static final int OPCODE_MUST_LOGIN_FIRST = 0xF0;
+    private static final int OPCODE_LOGIN_CLIENT = 0x10;
+    private static final int OPCODE_SUCCESSFUL_LOGIN_ACK = 0x80;
+    private static final int OPCODE_FAILED_LOGIN_ACK = 0x81;
+    private static final int OPCODE_SUBSCRIBE_CLIENT = 0x20;
+    private static final int OPCODE_SUCCESSFUL_SUBSCRIBE_ACK = 0x90;
+    private static final int OPCODE_FAILED_SUBSCRIBE_ACK = 0x91;
+    private static final int OPCODE_UNSUBSCRIBE_CLIENT = 0x21;
+    private static final int OPCODE_SUCCESSFUL_UNSUBSCRIBE_ACK = 0xA0;
+    private static final int OPCODE_FAILED_UNSUBSCRIBE_ACK = 0xA1;
+    private static final int OPCODE_POST_CLIENT = 0x30;
+    private static final int OPCODE_POST_ACK = 0xB0;
+    private static final int OPCODE_FORWARD_SERVER = 0xB1;
+    private static final int OPCODE_FORWARD_ACK = 0x31;
+    private static final int OPCODE_RETRIEVE_CLIENT = 0x40;
+    private static final int OPCODE_RETRIEVE_ACK = 0xC0;
+    private static final int OPCODE_END_OF_RETRIEVE_ACK = 0xC1;
+    private static final int OPCODE_LOGOUT_CLIENT = 0x1F;
+    private static final int OPCODE_LOGOUT_ACK = 0x8F;
 
 
     public static void main(String[] args) throws IOException {
 
         System.out.println("Hello this is the UDP Client!");
-        load(); // Load the stored list of Users
+        loadClientList(); // Load the stored list of Users
         Scanner sc = new Scanner(System.in);
 
         // create the socket object for
@@ -35,52 +75,78 @@ public class UDP_Client implements Serializable {
         DatagramSocket dsSend = new DatagramSocket();
         DatagramSocket dsRecieve = new DatagramSocket(portReceive);
 
+        UserData client = new UserData("init", "0");
+        int event = -1;
+        dispUserList();
 
         while (true)
         {
             // get input from the user
             String inp = sc.nextLine();
 
-            // convert the String input into the byte array.
-            sendPacket(inp, dsSend);
-
             // if user logs out
-            if (inp.contains("logout#")) {
-                String username = inp.substring(inp.indexOf("#") + 1, inp.indexOf("&"));
-                int rm = getUserIndex(username);
-                if (rm == -1) {
-                    System.out.println(username + " was not found and was not logged out");
-                } else {
-                    userList.remove(rm);
-                    save();
-                    byte[] receive = new byte[65535];
-                    receivePacket(dsRecieve, receive);
-//                    System.out.println(username + " has been successfully logged out");
-                    System.out.println();
-                }
-            } else if(inp.contains("login#")) {
-                // recieve buffer
-                byte[] receive = new byte[65535];
-                receivePacket(dsRecieve, receive);
+            if(inp.contains("login#")) {
+                event = EVENT_USER_LOGIN;
+
+                // receive buffer
+//                byte[] receive = new byte[65535];
+//                receivePacket(dsRecieve, receive);
 //                save();
-            } else if (inp.contains("addusr#")) {
+            } else if (inp.contains("logout#")) {
+                event = EVENT_USER_LOGOUT;
+
+//                String username = inp.substring(inp.indexOf("#") + 1, inp.indexOf("&"));
+//                int rm = getUserIndex(username);
+//                if (rm == -1) {
+//                    System.out.println(username + " was not found and was not logged out");
+//                } else {
+//                    userList.remove(rm);
+//                    saveClientList();
+//                    byte[] receive = new byte[65535];
+//                    receivePacket(dsRecieve, receive);
+////                    System.out.println(username + " has been successfully logged out");
+//                    System.out.println();
+//                }
+            }  else if (inp.contains("addusr#")) {
                 String username = inp.substring(inp.indexOf("#") + 1, inp.indexOf("&"));
                 String password = inp.substring(inp.indexOf("&") + 1);
                 UserData usr = new UserData(username, password);
                 userList.add(usr);
-                save();
+                saveClientList();
                 System.out.println(username + " has been added");
+            } else {
+                sendPacket(inp, dsSend);
             }
+
+
+            if (event == EVENT_USER_LOGIN) { // SEND LOGIN MESSAGE TO SERVER
+                payload = inp;
+                header = MAGIC1 + MAGIC2 + OPCODE_LOGIN_CLIENT + payload.length() + client.getToken()
+                        + payload;
+                sendPacket(header, dsSend);
+
+                byte[] receive = new byte[65535];
+                receivePacket(dsRecieve,receive);
+
+            } else if (event == EVENT_USER_LOGOUT) { // SEND LOGOUT MESSAGE TO SERVER
+                payload = inp;
+                header = MAGIC1 + MAGIC2 + OPCODE_LOGOUT_CLIENT + payload.length() + client.getToken()
+                        + payload;
+                sendPacket(header, dsSend);
+                byte[] receive = new byte[65535];
+                receivePacket(dsRecieve,receive);
+            }
+
+            event = -1; // RESET EVENT AFTER PROCESSING
+
 //            dispUserList();
-
-
 
         }
 
     }
 
     public static void sendPacket(String msg, DatagramSocket ds) throws IOException {
-        byte buf[];
+        byte[] buf;
         buf = msg.getBytes();
         // create the datagramPacket for sending
         // the data.
@@ -104,7 +170,7 @@ public class UDP_Client implements Serializable {
         System.out.println("Server msg: " + serverMsg);
     }
 
-    public static void load() {
+    public static void loadClientList() {
         try {
             FileInputStream fileIn = new FileInputStream(new File("savedUsers.txt"));
             ObjectInputStream objectIn = new ObjectInputStream(fileIn);
@@ -130,7 +196,7 @@ public class UDP_Client implements Serializable {
         return;
     }
 
-    public static void save() {
+    public static void saveClientList() {
 
         try {
             FileOutputStream listFileOut = new FileOutputStream("savedUsers.txt");
@@ -147,12 +213,15 @@ public class UDP_Client implements Serializable {
     }
 
     public static void dispUserList() {
-        load();
+        loadClientList();
         System.out.println("dispUserList!");
         for (UserData userData : userList) {
+            System.out.println("-----------------");
             System.out.println("User: " + userData.getUsername());
             System.out.println("Pass: " + userData.getPassword());
-            System.out.println();
+            System.out.println("Token: " + userData.getToken());
+            System.out.println("Logged in? " + userData.isLoggedin());
+            System.out.println("State: " + userData.getState());
         }
 
     }
