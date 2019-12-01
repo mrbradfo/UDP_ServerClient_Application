@@ -24,13 +24,9 @@ public class UDP_Client implements Serializable {
     private static final int portSend = 32000;
 //    private static final int portReceive = 50000;
 
-    // The header = "magic1 + magic2 + OPCODE + payloadlength +
-    //  + token + messageID + variable payload length
+    // The header = OPCODE + payload + client index + client port
+    // header + inp + "*" + userIndex + "$" + portReceive;
     private static String header = "";
-    private static String payload = "";
-    private static final String MAGIC1 = "M";
-    private static final String MAGIC2 = "B";
-
 
     private static final int STATE_OFFLINE = 0;
     private static final int STATE_LOGIN_SENT = 1;
@@ -70,7 +66,6 @@ public class UDP_Client implements Serializable {
     private static int state = STATE_OFFLINE;
     private static int userIndex = -1;
 
-
     public static void main(String[] args) throws IOException {
 
         System.out.println("Hello this is the UDP Client!");
@@ -78,37 +73,32 @@ public class UDP_Client implements Serializable {
         Scanner sc = new Scanner(System.in);
 
         Random rand = new Random();
-        int portReceive = abs(rand.nextInt(61000 - 32768 + 1) + 32768);
+        int portReceive = abs(rand.nextInt(61000 - 32768 + 1) + 32768); // Generates a rand # between 32768 and 61000
 
         // create the socket object for
         // carrying the data.
         DatagramSocket dsSend = new DatagramSocket();
         DatagramSocket dsReceive = new DatagramSocket(portReceive);
 
-//        UserData client = new UserData("init", "0");
         int event = -1;
-
-//        dispUserList();
 
         while (true)
         {
-            // get input from the user
+            // String to get input from the user
             String inp = "";
 
             if (state == STATE_OFFLINE) {
                 System.out.print("\nPlease login: ");
-//                inp = sc.nextLine();
             } else if (state == STATE_ONLINE) {
                 if (userIndex != -1) {
                     System.out.print(userList.get(userIndex).getUsername() + "~$ ");
                 }
-//                inp = sc.nextLine();
             }
 
             inp = sc.nextLine();
 //            else if (state == STATE_ONLINE) {
 
-            // if user logs out
+            // if user logs in
             if(inp.contains("login#")) {
                 event = EVENT_USER_LOGIN;
                 String username = inp.substring(inp.indexOf("#") + 1, inp.indexOf("&"));
@@ -143,7 +133,6 @@ public class UDP_Client implements Serializable {
                     System.out.println("Command invalid".toUpperCase());
                 }
 
-
                 if (event == EVENT_USER_LOGIN) { // SEND LOGIN MESSAGE TO SERVER
                     header = OPCODE_LOGIN_CLIENT + "";
                 } else if (event == EVENT_USER_LOGOUT) { // SEND LOGOUT MESSAGE TO SERVER
@@ -153,15 +142,11 @@ public class UDP_Client implements Serializable {
                 }
 
             if (event != -1) {
-                payload = inp;
-                header = header + payload + "*" + userIndex + "$" + portReceive;
+                header = header + inp + "*" + userIndex + "$" + portReceive;
                 sendPacket(header, dsSend);
                 byte[] receive = new byte[65535];
                 receivePacket(dsReceive,receive);
             }
-
-
-
 
 //            } // END OF STATE CONDITIONAL
 
@@ -175,6 +160,7 @@ public class UDP_Client implements Serializable {
     public static void sendPacket(String msg, DatagramSocket ds) throws IOException {
         byte[] buf;
         buf = msg.getBytes();
+
         // create the datagramPacket for sending
         // the data.
         DatagramPacket DpSend = new DatagramPacket(buf, buf.length, InetAddress.getByName(ip), portSend);

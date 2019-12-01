@@ -6,29 +6,13 @@ import java.util.LinkedList;
 
 public class UDP_Server {
 
-    static LinkedList<UserData> userList = new LinkedList<UserData>();
+    private static LinkedList<UserData> userList = new LinkedList<UserData>();
 
     private static final String ip = "127.0.0.1";
-    private static int portSend = -1; // port should be between 32768 and 61000
     private static final int portReceive = 32000;
 
-    // The header = "magic1 + magic2 + OPCODE + payloadlength +
-    //  + token + messageID + variable payload length
-
-//    private String header = "";
     private int messageID = 0;  // The ​ message ID is an ID used to identify an individual message.
                                 // It is monotonically increasing
-
-    private static final int STATE_OFFLINE = 0;
-    private static final int STATE_LOGIN_SENT = 1;
-    private static final int STATE_ONLINE = 2;
-
-    private static final int EVENT_USER_LOGIN = 0;
-    private static final int EVENT_NET_LOGIN_SUCCESSFUL = 2;
-    private static final int EVENT_USER_POST = 1;
-    private static final int EVENT_USER_INVALID = 79;
-    private static final int EVENT_NET_POST_ACK = 81;
-    private static final int EVENT_NET_INVALID = 255;
 
     private static final int OPCODE_SESSION_RESET = 0x00;
     private static final int OPCODE_MUST_LOGIN_FIRST = 0xF0;
@@ -72,11 +56,11 @@ public class UDP_Server {
 
         }
 
-    }
+    } // END OF MAIN
 
     // A utility method to convert the byte array
     // data into a string representation.
-    public static StringBuilder data(byte[] a) {
+    static StringBuilder data(byte[] a) {
         if (a == null)
             return null;
 
@@ -90,7 +74,7 @@ public class UDP_Server {
         return ret;
     }
 
-    public static void sendPacket(int OPCODE, DatagramSocket ds, int port) throws IOException { //Should take in header as a param
+    private static void sendPacket(int OPCODE, DatagramSocket ds, int port) throws IOException {
 
         String msg = "";
         if (OPCODE == OPCODE_SUCCESSFUL_LOGIN_ACK) {
@@ -109,7 +93,7 @@ public class UDP_Server {
             msg = "post_ack#failed";
         }
 
-        System.out.println(msg);
+//        System.out.println(msg);
 
         // create the socket object for
         // carrying the data.
@@ -130,7 +114,7 @@ public class UDP_Server {
 
     }
 
-    public static void receivePacket(DatagramSocket dsReceive, DatagramSocket dsSend, byte[] receive) throws IOException {
+    private static void receivePacket(DatagramSocket dsReceive, DatagramSocket dsSend, byte[] receive) throws IOException {
 
         DatagramPacket DpReceive = null;
         // create a DatgramPacket to receive the data.
@@ -168,12 +152,14 @@ public class UDP_Server {
 
         if (op == OPCODE_LOGIN_CLIENT) {
             if (login(username, pass)) {
+                System.out.println(username + " logged in");
                 sendPacket(OPCODE_SUCCESSFUL_LOGIN_ACK, dsSend, clientPort);
             } else {
                 sendPacket(OPCODE_FAILED_LOGIN_ACK, dsSend, clientPort);
             }
         } else if (op == OPCODE_LOGOUT_CLIENT) {
             if (logout(username, pass)) {
+                System.out.println(username + " logged out");
                 sendPacket(OPCODE_LOGOUT_ACK, dsSend, clientPort);
             } else {
                 sendPacket(OPCODE_FAILED_LOGOUT_ACK, dsSend, clientPort);
@@ -192,7 +178,7 @@ public class UDP_Server {
             }
 
             if (userIndex == -1) {
-                System.out.println("Failed to locate user".toUpperCase());
+//                System.out.println("Failed to locate user".toUpperCase());
 //              sendPacket(OPCODE_POST_FAILED, dsSend);
                 sendPacket(OPCODE_MUST_LOGIN_FIRST, dsSend, clientPort);
             } else {
@@ -223,14 +209,13 @@ public class UDP_Server {
         return logoutSuccessful;
     }
 
-    public static boolean login(String user, String pass) throws IOException {
+    private static boolean login(String user, String pass) {
         boolean loginSuccesful = false;
 
         // This loop iterates through the userList
         loadClientList();
         for (int i = 0; i < userList.size(); i++) {
             if (userList.get(i).getUsername().equals(user) && userList.get(i).getPassword().equals(pass)) {
-//                sendPacket(OPCODE_SUCCESSFUL_LOGIN_ACK, ds);
                 loginSuccesful = true;
                 userList.get(i).setLoggedin(true);
                 userList.get(i).setState(1);
@@ -239,12 +224,10 @@ public class UDP_Server {
             }
         }
 
-
-
         return  loginSuccesful;
     }
 
-    public static void loadClientList() {
+    private static void loadClientList() {
         try {
             FileInputStream fileIn = new FileInputStream(new File("savedUsers.txt"));
             ObjectInputStream objectIn = new ObjectInputStream(fileIn);
@@ -267,7 +250,7 @@ public class UDP_Server {
 
     }
 
-    public static void saveClientList() {
+    private static void saveClientList() {
 
         try {
             FileOutputStream listFileOut = new FileOutputStream("savedUsers.txt");
@@ -324,4 +307,4 @@ public class UDP_Server {
         return userIndex;
     }
 
-}
+} // END OF UDP_Server
