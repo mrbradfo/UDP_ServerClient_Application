@@ -5,7 +5,10 @@ package com.company;
 import java.io.*;
 import java.net.*;
 import java.util.LinkedList;
+import java.util.Random;
 import java.util.Scanner;
+
+import static java.lang.Math.abs;
 
 /*
     UDP_Client
@@ -19,7 +22,7 @@ public class UDP_Client implements Serializable {
 
     private static final String ip = "127.0.0.1";
     private static final int portSend = 32000;
-    private static final int portReceive = 50000;
+//    private static final int portReceive = 50000;
 
     // The header = "magic1 + magic2 + OPCODE + payloadlength +
     //  + token + messageID + variable payload length
@@ -74,10 +77,13 @@ public class UDP_Client implements Serializable {
         loadClientList(); // Load the stored list of Users
         Scanner sc = new Scanner(System.in);
 
+        Random rand = new Random();
+        int portReceive = abs(rand.nextInt(61000 - 32768 + 1) + 32768);
+
         // create the socket object for
         // carrying the data.
         DatagramSocket dsSend = new DatagramSocket();
-        DatagramSocket dsRecieve = new DatagramSocket(portReceive);
+        DatagramSocket dsReceive = new DatagramSocket(portReceive);
 
 //        UserData client = new UserData("init", "0");
         int event = -1;
@@ -93,7 +99,9 @@ public class UDP_Client implements Serializable {
                 System.out.print("\nPlease login: ");
 //                inp = sc.nextLine();
             } else if (state == STATE_ONLINE) {
-                System.out.print(userList.get(userIndex).getUsername() + "~$ ");
+                if (userIndex != -1) {
+                    System.out.print(userList.get(userIndex).getUsername() + "~$ ");
+                }
 //                inp = sc.nextLine();
             }
 
@@ -115,7 +123,7 @@ public class UDP_Client implements Serializable {
                         userList.remove(rm);
                         saveClientList();
                         byte[] receive = new byte[65535];
-                        receivePacket(dsRecieve, receive);
+                        receivePacket(dsReceive, receive);
     //                    System.out.println(username + " has been successfully logged out");
                         System.out.println();
                     }*/
@@ -146,10 +154,10 @@ public class UDP_Client implements Serializable {
 
             if (event != -1) {
                 payload = inp;
-                header = header + payload + "*" + userIndex;;
+                header = header + payload + "*" + userIndex + "$" + portReceive;
                 sendPacket(header, dsSend);
                 byte[] receive = new byte[65535];
-                receivePacket(dsRecieve,receive);
+                receivePacket(dsReceive,receive);
             }
 
 
@@ -183,9 +191,11 @@ public class UDP_Client implements Serializable {
         DpReceive = new DatagramPacket(receive, receive.length);
 
         // revieve the data in byte buffer.
+//        ds.setSoTimeout(2000);
         ds.receive(DpReceive);
         StringBuilder serverMsg = UDP_Server.data(receive);
         String response = serverMsg.toString();
+
         if (response.equals("login_ack#successful")) {
             state = STATE_ONLINE;
         } else if (response.equals("logout_ack#successful")) {
@@ -200,6 +210,7 @@ public class UDP_Client implements Serializable {
 
     public static void loadClientList() {
         try {
+
             FileInputStream fileIn = new FileInputStream(new File("savedUsers.txt"));
             ObjectInputStream objectIn = new ObjectInputStream(fileIn);
 

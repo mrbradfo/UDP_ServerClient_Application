@@ -9,15 +9,13 @@ public class UDP_Server {
     static LinkedList<UserData> userList = new LinkedList<UserData>();
 
     private static final String ip = "127.0.0.1";
-    private static final int portSend = 50000;// port should be between 32768 and 61000
+    private static int portSend = -1; // port should be between 32768 and 61000
     private static final int portReceive = 32000;
 
     // The header = "magic1 + magic2 + OPCODE + payloadlength +
     //  + token + messageID + variable payload length
 
-    private String header = "";
-    private static final String magic1 = "M";
-    private static final String magic2 = "B";
+//    private String header = "";
     private int messageID = 0;  // The ​ message ID is an ID used to identify an individual message.
                                 // It is monotonically increasing
 
@@ -65,8 +63,6 @@ public class UDP_Server {
         DatagramSocket dsSend = new DatagramSocket();
         DatagramSocket dsReceive = new DatagramSocket(portReceive);
 
-
-
         byte[] receive = new byte[65535];
 
         while (true) {
@@ -74,7 +70,6 @@ public class UDP_Server {
             // Clear the buffer after every message.
             receive = new byte[65535];
 
-//            sendPacket("Test", dsReceive);
         }
 
     }
@@ -95,7 +90,7 @@ public class UDP_Server {
         return ret;
     }
 
-    public static void sendPacket(int OPCODE, DatagramSocket ds) throws IOException { //Should take in header as a param
+    public static void sendPacket(int OPCODE, DatagramSocket ds, int port) throws IOException { //Should take in header as a param
 
         String msg = "";
         if (OPCODE == OPCODE_SUCCESSFUL_LOGIN_ACK) {
@@ -114,17 +109,20 @@ public class UDP_Server {
             msg = "post_ack#failed";
         }
 
+        System.out.println(msg);
+
         // create the socket object for
         // carrying the data.
         // DatagramSocket ds = new DatagramSocket();
-        byte[] buf = null;
+        byte[] buf;
 
         // convert the String input into the byte array.
         buf = msg.getBytes();
 
         // create the datagramPacket for sending
         // the data.
-        DatagramPacket DpSend = new DatagramPacket(buf, buf.length, InetAddress.getByName(ip), portSend);
+
+        DatagramPacket DpSend = new DatagramPacket(buf, buf.length, InetAddress.getByName(ip), port);
 
         // invoke the send call to actually send
         // the data.
@@ -141,8 +139,9 @@ public class UDP_Server {
         // revieve the data in byte buffer.
         dsReceive.receive(DpReceive);
         StringBuilder clientMsg = data(receive);
-        if(clientMsg.equals(""))
+        if(clientMsg.equals("")) {
             return;
+        }
 
         String username = "";
         String pass = "";
@@ -152,30 +151,32 @@ public class UDP_Server {
             pass = clientMsg.substring(clientMsg.indexOf("&") + 1, clientMsg.indexOf("*"));
         }
 
-
         int op = -1;
+        int clientPort = 0;
         try {
             String opcode = clientMsg.substring(0, 2);
 //            System.out.println("received opcode: " + opcode);
             op = Integer.parseInt(opcode);
+            String cPort = clientMsg.substring(clientMsg.indexOf("$") + 1);
+            clientPort = Integer.parseInt(cPort);
+
         } catch (NumberFormatException e) {
-            System.out.println("\nNumberFormatException\n");
+            System.out.println("\njava.lang.NumberFormatException".toUpperCase());
         } catch (StringIndexOutOfBoundsException o) {
             System.out.println("\nString index out of range\n");
         }
 
-
         if (op == OPCODE_LOGIN_CLIENT) {
             if (login(username, pass)) {
-                sendPacket(OPCODE_SUCCESSFUL_LOGIN_ACK, dsSend);
+                sendPacket(OPCODE_SUCCESSFUL_LOGIN_ACK, dsSend, clientPort);
             } else {
-                sendPacket(OPCODE_FAILED_LOGIN_ACK, dsSend);
+                sendPacket(OPCODE_FAILED_LOGIN_ACK, dsSend, clientPort);
             }
         } else if (op == OPCODE_LOGOUT_CLIENT) {
             if (logout(username, pass)) {
-                sendPacket(OPCODE_LOGOUT_ACK, dsSend);
+                sendPacket(OPCODE_LOGOUT_ACK, dsSend, clientPort);
             } else {
-                sendPacket(OPCODE_FAILED_LOGOUT_ACK, dsSend);
+                sendPacket(OPCODE_FAILED_LOGOUT_ACK, dsSend, clientPort);
             }
         } else if (op == OPCODE_POST_CLIENT) {
 //            int token = clientMsg.substring(clientMsg.indexOf("#") + 1, clientMsg.indexOf("&"))
@@ -183,30 +184,27 @@ public class UDP_Server {
 //            sendPacket(OPCODE_POST_ACK, dsSend);
             int userIndex = -1;
             try {
-                userIndex = Integer.parseInt(clientMsg.substring(clientMsg.indexOf("*") + 1)); // get the user index
+                userIndex = Integer.parseInt(clientMsg.substring(clientMsg.indexOf("*") + 1, clientMsg.indexOf("$"))); // get the user index
             } catch (java.lang.NumberFormatException e) {
-                System.out.println("\njava.lang.NumberFormatException".toUpperCase());
+                System.out.println("\njava.lang.NumberFormatException");
             } catch (StringIndexOutOfBoundsException ee) {
                 System.out.println("StringIndexOutOfBoundsException".toUpperCase());
             }
 
             if (userIndex == -1) {
                 System.out.println("Failed to locate user".toUpperCase());
-//                sendPacket(OPCODE_POST_FAILED, dsSend);
-                sendPacket(OPCODE_MUST_LOGIN_FIRST, dsSend);
-
+//              sendPacket(OPCODE_POST_FAILED, dsSend);
+                sendPacket(OPCODE_MUST_LOGIN_FIRST, dsSend, clientPort);
             } else {
                 if (userList.get(userIndex).isLoggedin()) {
                     String msg = clientMsg.substring(clientMsg.indexOf("#") + 1, clientMsg.indexOf("*"));
                     System.out.println(userList.get(userIndex).getUsername() + ": " + msg);
-                    sendPacket(OPCODE_POST_ACK, dsSend);
+                    sendPacket(OPCODE_POST_ACK, dsSend, clientPort);
                 } else {
-                    sendPacket(OPCODE_POST_FAILED, dsSend);
+                    sendPacket(OPCODE_POST_FAILED, dsSend, clientPort);
                 }
             }
-
         }
-
     }
 
     private static boolean logout(String user, String pass) {
@@ -307,6 +305,18 @@ public class UDP_Server {
 
         for (int i = 0; i < userList.size(); i++) {
             if (userList.get(i).getToken() == token) {
+                userIndex = i;
+            }
+        }
+
+        return userIndex;
+    }
+
+    public static int getUserIndex(String username) {
+        int userIndex = -1;
+
+        for (int i = 0; i < userList.size(); i++) {
+            if (userList.get(i).getUsername().equals(username)) {
                 userIndex = i;
             }
         }
