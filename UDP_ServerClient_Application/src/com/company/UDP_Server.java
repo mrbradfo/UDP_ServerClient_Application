@@ -1,4 +1,5 @@
 package com.company;
+package company;
 
 import java.io.*;
 import java.net.*;
