@@ -37,6 +37,7 @@ public class UDP_Client implements Serializable {
     private static final int EVENT_LOGIN_FAILED = 2;
     private static final int EVENT_USER_LOGOUT = 3; // User types logout. Client sends logoff message
     private static final int EVENT_USER_POST = 4;
+    private static final int EVENT_USER_SUBSCRIBE = 5;
     private static final int EVENT_USER_INVALID = 79;
     private static final int EVENT_POST_ACK = 81;
     private static final int EVENT_INVALID = 255;
@@ -79,6 +80,7 @@ public class UDP_Client implements Serializable {
         // carrying the data.
         DatagramSocket dsSend = new DatagramSocket();
         DatagramSocket dsReceive = new DatagramSocket(portReceive);
+//        dsReceive.setSoTimeout(200);
 
         int event = -1;
 
@@ -86,6 +88,8 @@ public class UDP_Client implements Serializable {
         {
             // String to get input from the user
             String inp = "";
+
+
 
             if (state == STATE_OFFLINE) {
                 System.out.print("\nPlease login: ");
@@ -95,8 +99,8 @@ public class UDP_Client implements Serializable {
                 }
             }
 
+
             inp = sc.nextLine();
-//            else if (state == STATE_ONLINE) {
 
             // if user logs in
             if(inp.contains("login#")) {
@@ -126,9 +130,15 @@ public class UDP_Client implements Serializable {
                     System.out.println(username + " has been added");
                 } else if (inp.contains("post#")) {
                     event = EVENT_USER_POST;
+                } else if (inp.contains("subscribe#")) {
+                    event = EVENT_USER_SUBSCRIBE;
                 } else if (inp.equals("disp")) {
                     dispUserList();
-                }  else {
+                }  else if (inp.equals("clr")) {
+                    System.out.println("Clearing userList...");
+                    userList.clear();
+                    saveClientList();
+                } else {
     //                sendPacket(inp, dsSend);
                     System.out.println("Command invalid".toUpperCase());
                 }
@@ -139,19 +149,24 @@ public class UDP_Client implements Serializable {
                     header = OPCODE_LOGOUT_CLIENT + "";
                 } else if (event == EVENT_USER_POST) {
                     header = OPCODE_POST_CLIENT + "";
+                } else if (event == EVENT_USER_SUBSCRIBE) {
+                    header = OPCODE_SUBSCRIBE_CLIENT + "";
                 }
 
             if (event != -1) {
-                header = header + inp + "*" + userIndex + "$" + portReceive;
+                header = header + inp + "*" + userIndex + "$" + portReceive; // SEND HEADER
                 sendPacket(header, dsSend);
-                byte[] receive = new byte[65535];
+
+                byte[] receive = new byte[65535];                            // RECEIVE RESPONSE
                 receivePacket(dsReceive,receive);
             }
 
 //            } // END OF STATE CONDITIONAL
 
             event = -1; // RESET EVENT AFTER PROCESSING
-            header = "";
+            header = "";// RESET HEADER AFTER PROCESSING
+//            byte[] receive = new byte[65535];                            // RECEIVE RESPONSE
+//            receivePacket(dsReceive,receive);
 
         } // END OF WHILE
 
@@ -178,20 +193,37 @@ public class UDP_Client implements Serializable {
 
         // revieve the data in byte buffer.
 //        ds.setSoTimeout(2000);
-        ds.receive(DpReceive);
+//        try {
+            ds.receive(DpReceive);
+//        } catch (java.net.SocketTimeoutException e) {
+//            System.out.println("-receive timed out-");
+//        }
         StringBuilder serverMsg = UDP_Server.data(receive);
         String response = serverMsg.toString();
 
+
+        System.out.println("msg: " + serverMsg);
         if (response.equals("login_ack#successful")) {
             state = STATE_ONLINE;
         } else if (response.equals("logout_ack#successful")) {
             state = STATE_OFFLINE;
             userIndex = -1;
-        }
-        else if (response.equals("post_ack#faled")) {
+        } else if (response.contains("post_ack#successful")) {
+//            receivePacket(ds, receive);
+//            for (int i = 0; i < 3; i++) {
+//                receive = new byte[65535];
+//                receivePacket(ds, receive);
+//            }
+//            int num = Integer.parseInt(response.substring(response.indexOf("_")+1));
+        } else if (response.contains("subscribe_ack#successful")) {
+
         }
 
-        System.out.println("Server msg: " + serverMsg);
+
+
+
+//        else if (response.equals("post_ack#faled")) {
+//        }
     }
 
     public static void loadClientList() {
@@ -244,9 +276,14 @@ public class UDP_Client implements Serializable {
             System.out.println("-----------------");
             System.out.println("User: " + userData.getUsername());
             System.out.println("Pass: " + userData.getPassword());
-            System.out.println("Token: " + userData.getToken());
+            System.out.println("Port: " + userData.getToken());
             System.out.println("Logged in? " + userData.isLoggedin());
-            System.out.println("State: " + userData.getState());
+//            System.out.println("State: " + userData.getState());
+            if (!userData.getSubscriberList().isEmpty()) {
+                System.out.println("Subscriber: " + userData.getSubscriberList().get(0));
+            } else {
+                System.out.println("No subscribers");
+            }
         }
 
     }
