@@ -12,7 +12,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<VBox prefHeight="400.0" prefWidth="640.0" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1">
+<VBox prefHeight="400.0" prefWidth="640.0" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="company.UDP_Client">
   <children>
     <MenuBar prefHeight="108.0" prefWidth="696.0" VBox.vgrow="NEVER">
       <menus>
@@ -60,20 +60,22 @@
             <Font size="18.0" />
           </font>
         </Label>
-            <TextField layoutX="14.0" layoutY="72.0" />
-            <TextArea layoutX="339.0" layoutY="5.0" prefHeight="185.0" prefWidth="200.0" />
-            <Button layoutX="174.0" layoutY="72.0" mnemonicParsing="false" text="Send" />
+            <TextField id="clientMsg" fx:id="messageField" layoutX="14.0" layoutY="72.0" />
+            <TextArea id="clientTextArea" fx:id="clientTextArea" layoutX="342.0" layoutY="3.0" prefHeight="185.0" prefWidth="200.0" />
+            <Button id="sendBtn" fx:id="sendBtn" defaultButton="true" layoutX="174.0" layoutY="72.0" mnemonicParsing="false" onAction="#sendClicked" text="Send" />
+            <Button id="saveBtn" fx:id="saveBtn" layoutX="31.0" layoutY="133.0" mnemonicParsing="false" onAction="#saveClientList" text="Save" />
+            <Button id="loadBtn" fx:id="loadBtn" layoutX="89.0" layoutY="133.0" mnemonicParsing="false" onAction="#loadClientList" text="Load" />
+            <Button id="dispBtn" fx:id="dispBtn" layoutX="148.0" layoutY="133.0" mnemonicParsing="false" onAction="#dispUserList" text="Display" />
       </children>
     </AnchorPane>
-      <AnchorPane layoutX="10.0" layoutY="35.0" maxHeight="-1.0" maxWidth="-1.0" prefHeight="257.0" prefWidth="657.0">
+      <AnchorPane layoutX="10.0" layoutY="35.0" maxHeight="-1.0" maxWidth="-1.0" prefHeight="220.0" prefWidth="676.0">
          <children>
             <Label alignment="CENTER" layoutX="19.0" layoutY="23.0" style="&#10;" text="UDP Server" textAlignment="CENTER" textFill="#9f9f9f" wrapText="false">
                <font>
                   <Font size="18.0" />
                </font>
             </Label>
-            <TextField layoutX="19.0" layoutY="58.0" />
-            <TextArea layoutX="340.0" prefHeight="200.0" prefWidth="200.0" />
+            <TextArea id="serverTextArea" fx:id="serverTextArea" layoutX="343.0" prefHeight="200.0" prefWidth="200.0" />
          </children>
       </AnchorPane>
   </children>

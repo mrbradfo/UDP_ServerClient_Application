@@ -8,6 +8,13 @@ import java.util.LinkedList;
 import java.util.Random;
 import java.util.Scanner;
 
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.fxml.FXML;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+
 import static java.lang.Math.abs;
 
 /*
@@ -65,8 +72,40 @@ public class UDP_Client implements Serializable {
 
  private static int state = STATE_OFFLINE;
  private static int userIndex = -1;
+ 
+@FXML
+private TextField messageField;
 
- public static void main(String[] args) throws IOException {
+@FXML
+private TextArea clientTextArea;
+
+@FXML
+private TextArea serverTextArea;
+
+//@FXML
+//private Button sendBtn;
+
+@FXML
+private Button saveBtn;
+
+@FXML
+private Button loadBtn;
+
+@FXML
+private Button dispBtn;
+
+private boolean sendClicked = false;
+
+/**
+ * Initializes the class. This method is automatically called after
+ * the FXML file has been loaded.
+ */
+@FXML
+private void initialize() {} 
+
+
+
+ public void main(String[] args) throws IOException {
 
      System.out.println("Hello this is the UDP Client!");
      loadClientList(); // Load the stored list of Users
@@ -82,6 +121,7 @@ public class UDP_Client implements Serializable {
 
      int event = -1;
 
+     
      while (true)
      {
          // String to get input from the user
@@ -95,7 +135,8 @@ public class UDP_Client implements Serializable {
              }
          }
 
-         inp = sc.nextLine();
+         inp = messageField.getText();//sc.nextLine();
+//         messageField.setText(inp);
 //         else if (state == STATE_ONLINE) {
 
          // if user logs in
@@ -156,7 +197,24 @@ public class UDP_Client implements Serializable {
      } // END OF WHILE
 
  } // END OF MAIN
+ 
+ 
+ /**
+  * Called when send is clicked
+  */
+ @FXML
+ private void sendClicked() {
 
+	 System.out.println("send was clickkkeeddd yo");
+	 
+	 serverTextArea.setText(messageField.getText());
+//	 serverTextArea.setText("YYOYOYOYOYOYOY");
+     sendClicked = true;
+
+     
+ }
+ 
+ 
  public static void sendPacket(String msg, DatagramSocket ds) throws IOException {
      byte[] buf;
      buf = msg.getBytes();
@@ -194,7 +252,11 @@ public class UDP_Client implements Serializable {
      System.out.println("Server msg: " + serverMsg);
  }
 
- public static void loadClientList() {
+ /**
+  * Called when load is clicked
+  */
+ @FXML
+ public void loadClientList() {
      try {
 
          FileInputStream fileIn = new FileInputStream(new File("savedUsers.txt"));
@@ -221,7 +283,11 @@ public class UDP_Client implements Serializable {
      return;
  }
 
- public static void saveClientList() {
+ /**
+  * Called when save is clicked
+  */
+ @FXML
+ public void saveClientList() {
 
      try {
          FileOutputStream listFileOut = new FileOutputStream("savedUsers.txt");
@@ -237,21 +303,26 @@ public class UDP_Client implements Serializable {
      }
  }
 
- public static void dispUserList() {
+ /**
+  * Called when display is clicked
+  */
+ @FXML
+ public void dispUserList() {
      loadClientList();
      System.out.println("\n\ndispUserList!");
+     clientTextArea.clear();
      for (UserData userData : userList) {
-         System.out.println("-----------------");
-         System.out.println("User: " + userData.getUsername());
-         System.out.println("Pass: " + userData.getPassword());
-         System.out.println("Token: " + userData.getToken());
-         System.out.println("Logged in? " + userData.isLoggedin());
-         System.out.println("State: " + userData.getState());
+    	 clientTextArea.appendText("\n-----------------");
+    	 clientTextArea.appendText("\nUser: " + userData.getUsername());
+    	 clientTextArea.appendText("\nPass: " + userData.getPassword());
+    	 clientTextArea.appendText("\nToken: " + userData.getToken());
+    	 clientTextArea.appendText("\nLogged in? " + userData.isLoggedin());
+    	 clientTextArea.appendText("\nState: " + userData.getState());
      }
 
  }
 
- public static int getUserIndex(String username) {
+ public int getUserIndex(String username) {
      int userIndex = -1;
 
      for (int i = 0; i < userList.size(); i++) {
